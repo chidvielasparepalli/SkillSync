@@ -1,0 +1,3 @@
+# Vercel deploy is managed through the Vercel project integration.
+# Once the repository is connected in Vercel, every push to main triggers a production build.
+# GitHub Pages workflow is also available after Pages is enabled under repository Settings > Pages.
