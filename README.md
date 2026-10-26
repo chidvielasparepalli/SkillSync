@@ -48,14 +48,18 @@ npm run preview
 
 ## Configuration
 
+Vercel serves the site from the domain root, so the default build uses `/` for its assets. The GitHub Pages workflow builds with Vite's `github-pages` mode so its assets use the repository subpath `/SkillSync/`.
+
 Copy `.env.example` to `.env` when integrating a backend. Never expose private keys in frontend environment variables.
 
 ## Live deployment
 
-The production bundle is configured for the GitHub Pages project URL:
+The GitHub Pages URL for this repository is:
 `https://chidvielasparepalli.github.io/SkillSync/`
 
-To publish it, open **Settings → Pages** in this repository and set **Build and deployment → Source** to **GitHub Actions**. The workflow in `.github/workflows/pages.yml` then builds and deploys the site on pushes to `main`. The connected GitHub integration cannot enable the Pages service on behalf of the repository owner, so this one-time setting must be enabled by the owner.
+To publish there, open **Settings → Pages** in this repository and set **Build and deployment → Source** to **GitHub Actions**. The workflow in `.github/workflows/pages.yml` then builds and deploys the site on pushes to `main`. The connected GitHub integration cannot enable the Pages service on behalf of the repository owner, so this one-time setting must be enabled by the owner.
+
+The Vercel project can use the regular Vite build command `npm run build` and output directory `dist`. No catch-all rewrite is needed for this single-page landing page.
 
 ## Planned implementation
 
