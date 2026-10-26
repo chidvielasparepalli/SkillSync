@@ -54,7 +54,7 @@ Never place a Supabase service-role key or secret key in a `VITE_*` variable. Th
 
 ## Backend setup
 
-The configured Supabase project is `skillsync-production` in the `ap-south-1` region. The core migration is stored at `supabase/migrations/20261026132635_create_skillsync_core.sql` and has been applied to that project.
+The configured Supabase project is `skillsync-production` in the `ap-south-1` region. The core migration is stored at `supabase/migrations/20261026132635_create_skillsync_core.sql`; `supabase/migrations/20261026155300_add_missing_foreign_key_indexes.sql` adds indexes for message sender and saved-profile lookups. Both migrations have been applied to that project.
 
 In the Supabase dashboard, open **Authentication → URL Configuration** and set:
 
