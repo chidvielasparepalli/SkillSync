@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, Bookmark, Check, ChevronRight, Code2, Compass, Figma, GraduationCap, Heart, Laptop, Menu, Palette, Search, Sparkles, Users, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Bookmark, Check, ChevronRight, Code2, Compass, GraduationCap, Laptop, Menu, Palette, Search, Sparkles, Users, X } from "lucide-react";
 
 type Person = {
   id: number;
