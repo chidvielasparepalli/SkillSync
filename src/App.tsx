@@ -31,7 +31,7 @@ function Brand() {
   return <a className="brand" href="#top" aria-label="SkillSync home"><span className="brand-mark"><i /><i /><i /></span><span>skill<span className="brand-accent">sync</span><sup>✳</sup></span></a>;
 }
 
-function App() {
+export default function App() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All skills");
   const [saved, setSaved] = useState<number[]>([]);
