@@ -2,31 +2,32 @@
 
 **A peer-to-peer skill exchange and collaborative learning platform for students.**
 
-SkillSync helps students share skills they already have, find peers who can teach them something new, and make learning more social and affordable.
+SkillSync helps students teach a skill they know, learn a skill from another student, and manage the exchange from one simple workspace.
 
-## Current status
+## What the website does
 
-The repository currently contains a responsive React + TypeScript + Vite landing page with skill-search, category filters, saved demo profiles, and skill-swap request UI. Profiles and requests on the public landing page are illustrative demo data; they are not persisted yet.
+- **Account creation and sign-in:** students register with email and password; password reset is available.
+- **Student profiles:** members save their name, headline, college, bio, skills they can teach, and skills they want to learn.
+- **Discover students:** search by name, skill, college, and profile text; filter by category; browse real member profiles.
+- **Saved students:** bookmark or unbookmark profiles; bookmarks are stored in the database.
+- **Skill-exchange requests:** choose what you can teach, what you want to learn, and send a message. Both students can see the request and its status.
+- **Request decisions:** recipients can accept or decline; senders can cancel pending requests.
+- **Private exchange messages:** after a request is accepted, participants can message each other to arrange their learning exchange.
+- **Completion tracking:** either participant can mark an accepted exchange as complete; completed conversations become read-only.
+- **Responsive UI:** desktop, tablet and mobile layouts, empty states, form validation, progress indicators and clear status messages.
 
-## Features in this starter
+The site does not manufacture demo student profiles. The Discover page shows actual accounts that have created profiles. For a good interview demo, register two accounts with different skills and demonstrate the full exchange between them.
 
-- Responsive landing page and product introduction
-- Student skill partner discovery cards
-- Search by name, skill, role, or interest
-- Filter by Development, Design, Data & AI, and Communication
-- Save/unsave demo profiles in the current browser session
-- Skill-swap interaction feedback
-- Responsive layout for mobile, tablet, and desktop
+## Technology
 
-## Tech stack
-
-- React
-- TypeScript
-- Vite
-- CSS
+- React 19 + TypeScript
+- Vite 6
+- Supabase Auth
+- Supabase Postgres with Row Level Security (RLS)
 - Lucide React icons
+- Vercel deployment from the GitHub `main` branch
 
-## Run locally
+## Local development
 
 Requirements: Node.js 20+ and npm.
 
@@ -34,52 +35,64 @@ Requirements: Node.js 20+ and npm.
 git clone https://github.com/chidvielasparepalli/SkillSync.git
 cd SkillSync
 npm install
+```
+
+Copy `.env.example` to `.env` and fill in your Supabase URL and publishable key, then run:
+
+```bash
 npm run dev
 ```
 
-Open the local URL printed by Vite.
-
-Build for production:
+Build and locally preview the production bundle:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## Configuration
+Never place a Supabase service-role key or secret key in a `VITE_*` variable. The frontend uses only the publishable key, and RLS policies limit which rows authenticated users can access.
 
-Vercel serves the site from the domain root, so the default build uses `/` for its assets. The GitHub Pages workflow builds with Vite's `github-pages` mode so its assets use the repository subpath `/SkillSync/`.
+## Backend setup
 
-Copy `.env.example` to `.env` when integrating a backend. Never expose private keys in frontend environment variables.
+The configured Supabase project is `skillsync-production` in the `ap-south-1` region. The core migration is stored at `supabase/migrations/20261026132635_create_skillsync_core.sql` and has been applied to that project.
 
-## Live deployment
+In the Supabase dashboard, open **Authentication → URL Configuration** and set:
 
-The GitHub Pages URL for this repository is:
-`https://chidvielasparepalli.github.io/SkillSync/`
+- **Site URL:** `https://skillsync-community.vercel.app`
+- **Redirect URLs:** `https://skillsync-community.vercel.app/**`, `https://skillsync-smoky.vercel.app/**`, and `http://localhost:5173/**` for local testing.
 
-To publish there, open **Settings → Pages** in this repository and set **Build and deployment → Source** to **GitHub Actions**. The workflow in `.github/workflows/pages.yml` then builds and deploys the site on pushes to `main`. The connected GitHub integration cannot enable the Pages service on behalf of the repository owner, so this one-time setting must be enabled by the owner.
+This lets account confirmation and password-reset links return to the website. Email confirmation may be required by Supabase before a new account can sign in.
 
-The Vercel project can use the regular Vite build command `npm run build` and output directory `dist`. No catch-all rewrite is needed for this single-page landing page.
+The Vercel project has these environment variables configured for Production, Preview, and Development:
 
-## Planned implementation
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-1. Authentication and student profile management
-2. Persistent skills offered and skills wanted
-3. Matching students based on complementary skills
-4. Send, accept, and reject skill exchange requests
-5. Peer messaging and session scheduling
-6. Learning resource sharing and collaboration
-7. Session feedback and ratings
-8. Database policies, tests, accessibility checks, and deployment
+After changing Vercel environment variables, trigger a new deployment so Vite includes the values in the frontend bundle.
 
-## Project abstract
+## Data and access model
 
-SkillSync is designed to support students exchanging skills such as Python, Java, design, and web development. Its goal is to promote peer learning, teamwork, communication, and continuous skill development.
+The database contains four public tables:
 
-## Contributing
+- `profiles`: one editable profile per authenticated account.
+- `exchange_requests`: sender, recipient, skills being exchanged, message, and status.
+- `messages`: conversation messages for accepted exchanges.
+- `saved_profiles`: per-user bookmarks.
 
-Create a branch, make focused changes, run `npm run build`, then open a pull request.
+RLS is enabled on all four tables. Profiles are discoverable only to signed-in members; students can change only their own profile and bookmarks; requests are visible only to their participants; messages are visible only to participants of accepted/completed exchanges and can be sent only while an exchange is accepted. A database trigger creates a basic profile when a new auth account is created.
 
----
+## Deployment
 
-Made for curious minds. ✨
+Production URL: [https://skillsync-community.vercel.app](https://skillsync-community.vercel.app)
+
+Source code: [GitHub repository](https://github.com/chidvielasparepalli/SkillSync)
+
+Vercel builds with `npm run build` and serves `dist`. The default Vite asset base is `/` for Vercel. GitHub Pages uses the `github-pages` Vite mode to build with `/SkillSync/`.
+
+## Current scope and honest limitations
+
+This is a working skill-exchange app, not a mock profile gallery. Actual accounts, profiles, requests, bookmarks, and messages use the connected database. The app does **not** yet include built-in video calls, calendar scheduling, file uploads, ratings, or real-time push notifications; users coordinate through the message thread. The interview demo should use real accounts created by you and your friend.
+
+## Interview guide
+
+See [docs/INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md) for a simple explanation of the pages, buttons, data model, and demonstration flow.
