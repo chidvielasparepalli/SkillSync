@@ -163,6 +163,8 @@ export default function App() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [pageError, setPageError] = useState("");
+  const [requestError, setRequestError] = useState("");
+  const [connectionState, setConnectionState] = useState<"checking" | "connected" | "error">("checking");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All skills");
@@ -223,11 +225,12 @@ export default function App() {
     const client = supabase;
     const userId = user?.id;
     if (!authReady || !client || !userId) {
-      setProfiles([]); setRequests([]); setSavedIds([]); setDataLoading(false); return;
+      setProfiles([]); setRequests([]); setSavedIds([]); setDataLoading(false); setConnectionState("checking"); return;
     }
     let cancelled = false;
     const loadData = async () => {
       setDataLoading(true);
+      setConnectionState("checking");
       setPageError("");
       try {
         const [profileResult, requestResult, savedResult] = await Promise.all([
@@ -250,8 +253,12 @@ export default function App() {
         setProfiles(rows);
         setRequests((requestResult.data ?? []) as ExchangeRequest[]);
         setSavedIds((savedResult.data ?? []).map((row: { profile_id: string }) => row.profile_id));
+        setConnectionState("connected");
       } catch (error) {
-        if (!cancelled) setPageError(error instanceof Error ? error.message : "Something went wrong while loading SkillSync.");
+        if (!cancelled) {
+          setConnectionState("error");
+          setPageError(error instanceof Error ? error.message : "Something went wrong while loading SkillSync.");
+        }
       } finally {
         if (!cancelled) setDataLoading(false);
       }
@@ -410,6 +417,7 @@ export default function App() {
     const reciprocalTeach = myProfile.skills_teach.find((skill) => profile.skills_learn.some((wanted) => wanted.toLowerCase() === skill.toLowerCase()));
     const reciprocalLearn = profile.skills_teach.find((skill) => myProfile.skills_learn.some((wanted) => wanted.toLowerCase() === skill.toLowerCase()));
     setRequestTarget(profile);
+    setRequestError("");
     setRequestDraft({
       teachSkill: reciprocalTeach ?? myProfile.skills_teach[0],
       learnSkill: reciprocalLearn ?? profile.skills_teach[0],
@@ -422,8 +430,8 @@ export default function App() {
     event.preventDefault();
     const client = supabase;
     if (!client || !user || !requestTarget) return;
-    if (!requestDraft.teachSkill || !requestDraft.learnSkill) { setPageError("Choose the skill you can teach and the skill you would like to learn."); return; }
-    setSendingRequest(true); setPageError("");
+    if (!requestDraft.teachSkill || !requestDraft.learnSkill) { setRequestError("Choose the skill you can teach and the skill you would like to learn."); return; }
+    setSendingRequest(true); setRequestError("");
     try {
       const { data, error } = await client.from("exchange_requests").insert({
         sender_id: user.id, recipient_id: requestTarget.id, teach_skill: requestDraft.teachSkill,
@@ -434,9 +442,9 @@ export default function App() {
         throw error;
       }
       setRequests((current) => [data as ExchangeRequest, ...current]);
-      setRequestTarget(null); setSection("requests"); setRequestMode("sent"); notify("Skill-exchange request sent.");
+      setRequestTarget(null); setRequestError(""); setSection("requests"); setRequestMode("sent"); notify("Skill-exchange request sent.");
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "The exchange request could not be sent.");
+      setRequestError(error instanceof Error ? error.message : "The exchange request could not be sent.");
     } finally { setSendingRequest(false); }
   };
 
@@ -520,7 +528,7 @@ export default function App() {
         <header className="topbar">
           <button className="icon-button mobile-menu-toggle" onClick={() => setMobileNavOpen((value) => !value)} aria-label="Open navigation"><Menu size={20} /></button>
           <div className="topbar-heading"><div className="breadcrumbs">SkillSync <span>/</span> {sectionTitle[section].title}</div><h1>{sectionTitle[section].title}</h1></div>
-          <div className="topbar-right"><div className="connection-status"><span /> Database connected</div><button className="topbar-avatar" title="Open my profile" onClick={() => setSection("profile")}>{initials(myProfile?.full_name || "Student")}</button></div>
+          <div className="topbar-right"><div className={"connection-status connection-" + connectionState} role="status"><span /> {connectionState === "checking" ? "Syncing data" : connectionState === "error" ? "Connection issue" : "Database connected"}</div><button className="topbar-avatar" title="Open my profile" onClick={() => setSection("profile")}>{initials(myProfile?.full_name || "Student")}</button></div>
         </header>
 
         <main className="dashboard-content">
@@ -633,16 +641,17 @@ export default function App() {
         </main>
       </div>
 
-      {requestTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setRequestTarget(null); }}>
+      {requestTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setRequestTarget(null); setRequestError(""); } }}>
         <section className="request-modal" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
-          <div className="modal-header"><div className="modal-icon"><Handshake size={20} /></div><button className="icon-button" onClick={() => setRequestTarget(null)} aria-label="Close request form"><X size={18} /></button></div>
+          <div className="modal-header"><div className="modal-icon"><Handshake size={20} /></div><button className="icon-button" onClick={() => { setRequestTarget(null); setRequestError(""); }} aria-label="Close request form"><X size={18} /></button></div>
           <div className="eyebrow">START A SKILL EXCHANGE</div><h2 id="request-modal-title">Connect with {requestTarget.full_name.split(" ")[0]}.</h2><p className="modal-description">Choose what you will share and what you hope to learn. Your request is saved so they can respond.</p>
           <form className="request-form" onSubmit={sendRequest}>
+            {requestError && <div className="feedback feedback-error" role="alert"><X size={16} /><span>{requestError}</span><button type="button" aria-label="Dismiss request error" onClick={() => setRequestError("")}><X size={14} /></button></div>}
             <label>Skill you will teach<select value={requestDraft.teachSkill} onChange={(event) => setRequestDraft((draft) => ({ ...draft, teachSkill: event.target.value }))} required>{myProfile?.skills_teach.map((skill) => <option key={skill} value={skill}>{skill}</option>)}</select></label>
             <label>Skill you want to learn<select value={requestDraft.learnSkill} onChange={(event) => setRequestDraft((draft) => ({ ...draft, learnSkill: event.target.value }))} required>{requestTarget.skills_teach.map((skill) => <option key={skill} value={skill}>{skill}</option>)}</select></label>
             <label>Personal message <span className="field-hint">A short note helps the other student respond.</span><textarea rows={4} value={requestDraft.message} onChange={(event) => setRequestDraft((draft) => ({ ...draft, message: event.target.value }))} maxLength={500} placeholder="Hi! I'd love to exchange skills..." /></label>
             <div className="form-help"><ShieldCheck size={16} /> Your request will only be visible to you and the student you contact.</div>
-            <div className="modal-actions"><button type="button" className="button button-outline" onClick={() => setRequestTarget(null)}>Cancel</button><button type="submit" className="button button-primary" disabled={sendingRequest}>{sendingRequest ? <LoaderCircle size={16} className="spin" /> : <Send size={16} />} {sendingRequest ? "Sending..." : "Send request"}</button></div>
+            <div className="modal-actions"><button type="button" className="button button-outline" onClick={() => { setRequestTarget(null); setRequestError(""); }}>Cancel</button><button type="submit" className="button button-primary" disabled={sendingRequest}>{sendingRequest ? <LoaderCircle size={16} className="spin" /> : <Send size={16} />} {sendingRequest ? "Sending..." : "Send request"}</button></div>
           </form>
         </section>
       </div>}
