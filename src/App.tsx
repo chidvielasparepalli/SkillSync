@@ -114,6 +114,37 @@ function AuthScreen(props: {
   );
 }
 
+
+function PasswordRecoveryScreen(props: {
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSignOut: () => void;
+  busy: boolean;
+  feedback: { kind: "error" | "success"; text: string } | null;
+}) {
+  const { onSubmit, onSignOut, busy, feedback } = props;
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  return (
+    <div className="recovery-page">
+      <div className="recovery-card">
+        <Brand />
+        <div className="auth-card-mark"><ShieldCheck size={20} /></div>
+        <div className="eyebrow">ACCOUNT RECOVERY</div>
+        <h1>Choose a new password.</h1>
+        <p className="auth-description">Use at least 8 characters. Your new password will replace the old one for this account.</p>
+        {feedback && <div className={"feedback feedback-" + feedback.kind} role={feedback.kind === "error" ? "alert" : "status"}><X size={16} /><span>{feedback.text}</span></div>}
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label>New password<input name="password" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" required /></label>
+          <label>Confirm new password<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Enter it again" required /></label>
+          <button className="button button-primary auth-submit" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin" /> : <CheckCircle2 size={17} />}{busy ? "Updating password..." : "Update password"}</button>
+        </form>
+        <button className="text-action recovery-signout" onClick={onSignOut}><LogOut size={14} /> Cancel and sign out</button>
+        <div className="auth-secure-note"><ShieldCheck size={14} /> Your password is securely managed by Supabase Auth.</div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -121,6 +152,9 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authFeedback, setAuthFeedback] = useState<{ kind: "error" | "success" | "info"; text: string } | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoveryFeedback, setRecoveryFeedback] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
   const [section, setSection] = useState<Section>("discover");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -174,9 +208,13 @@ export default function App() {
       setAuthError(error instanceof Error ? error.message : "Unable to check your session.");
       setAuthReady(true);
     });
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (nextSession) setAuthFeedback(null);
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecovery(true);
+        setRecoveryFeedback(null);
+      }
     });
     return () => { alive = false; subscription.unsubscribe(); };
   }, []);
@@ -290,13 +328,43 @@ export default function App() {
     } finally { setAuthBusy(false); }
   };
 
+
+  const handlePasswordUpdate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const client = supabase;
+    if (!client) return;
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get("password") ?? "");
+    const confirmPassword = String(form.get("confirmPassword") ?? "");
+    if (password.length < 8) {
+      setRecoveryFeedback({ kind: "error", text: "Choose a password with at least 8 characters." });
+      return;
+    }
+    if (password !== confirmPassword) {
+      setRecoveryFeedback({ kind: "error", text: "The passwords do not match. Please try again." });
+      return;
+    }
+    setRecoveryBusy(true);
+    setRecoveryFeedback(null);
+    const { error } = await client.auth.updateUser({ password });
+    setRecoveryBusy(false);
+    if (error) {
+      setRecoveryFeedback({ kind: "error", text: error.message });
+      return;
+    }
+    setPasswordRecovery(false);
+    setRecoveryFeedback(null);
+    setSection("discover");
+    notify("Your password has been updated successfully.");
+  };
+
   const signOut = async () => {
     const client = supabase;
     if (!client) return;
     const { error } = await client.auth.signOut();
     if (error) setPageError(error.message);
     else {
-      setSection("discover"); setAuthMode("signin"); setNotice(""); setPageError(""); notify("You have signed out.");
+      setSection("discover"); setAuthMode("signin"); setPasswordRecovery(false); setRecoveryFeedback(null); setNotice(""); setPageError(""); notify("You have signed out.");
     }
   };
 
@@ -398,7 +466,8 @@ export default function App() {
   useEffect(() => {
     if (!activeConversationId || section !== "messages") return;
     void fetchMessages(activeConversationId);
-    // Messages refresh when a conversation is opened or when the Refresh button is used.
+    const refreshId = window.setInterval(() => { void fetchMessages(activeConversationId, true); }, 10000);
+    return () => window.clearInterval(refreshId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversationId, section]);
 
@@ -423,6 +492,7 @@ export default function App() {
     return <div className="config-page"><div className="config-card"><Brand /><div className="config-icon"><ShieldCheck size={22} /></div><h1>Finish connecting SkillSync</h1><p>The site needs its Supabase public URL and publishable key to enable accounts and save real data. Add these environment variables in Vercel, then redeploy.</p><div className="config-vars"><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_PUBLISHABLE_KEY</code></div><a className="button button-primary" href="https://vercel.com" target="_blank" rel="noreferrer">Open Vercel settings <ArrowRight size={16} /></a></div></div>;
   }
   if (!authReady) return <div className="loading-screen"><div className="loader-mark"><LoaderCircle size={25} className="spin" /></div><Brand /><p>Preparing your learning space...</p></div>;
+  if (passwordRecovery && session) return <PasswordRecoveryScreen onSubmit={handlePasswordUpdate} onSignOut={() => void signOut()} busy={recoveryBusy} feedback={recoveryFeedback} />;
   if (!session) return <AuthScreen mode={authMode} setMode={(mode) => { setAuthMode(mode); setAuthFeedback(null); }} onSubmit={handleAuthSubmit} busy={authBusy} feedback={authFeedback ?? (authError ? { kind: "error", text: authError } : null)} setFeedback={(value) => { setAuthFeedback(value); setAuthError(null); }} />;
 
   const sectionTitle: Record<Section, { title: string; subtitle: string }> = {
