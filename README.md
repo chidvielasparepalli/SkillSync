@@ -50,6 +50,13 @@ npm run preview
 
 Copy `.env.example` to `.env` when integrating a backend. Never expose private keys in frontend environment variables.
 
+## Live deployment
+
+The production bundle is configured for the GitHub Pages project URL:
+`https://chidvielasparepalli.github.io/SkillSync/`
+
+To publish it, open **Settings → Pages** in this repository and set **Build and deployment → Source** to **GitHub Actions**. The workflow in `.github/workflows/pages.yml` then builds and deploys the site on pushes to `main`. The connected GitHub integration cannot enable the Pages service on behalf of the repository owner, so this one-time setting must be enabled by the owner.
+
 ## Planned implementation
 
 1. Authentication and student profile management
